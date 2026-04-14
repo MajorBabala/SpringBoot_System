@@ -1,0 +1,547 @@
+基于 SpringBoot 的企业财务管理系统项目设计文档
+1. 引言
+1.1 项目背景
+随着中小企业数字化转型的推进，传统手工财务管理方式已无法满足高效、准确、规范的管理需求。商业化财务软件成本高昂、功能冗余，难以适配中小企业个性化需求。本项目旨在开发一套轻量级、易用、安全的企业财务管理系统，帮助中小企业实现财务业务的线上化、规范化管理。
+1.2 项目目标
+•	实现凭证管理、账簿查询、报表生成、费用报销等核心财务功能。
+•	提供基于角色的权限控制，确保数据安全。
+•	采用前后端分离架构，保证系统的可扩展性和维护性。
+•	系统响应快速，支持50+用户并发访问。
+1.3 项目范围
+本项目聚焦中小企业日常财务核算，不包括固定资产、工资、税务申报等模块，但预留接口供后续扩展。
+________________________________________
+2. 技术选型与开发环境
+技术	版本	说明
+JDK	11+	基础运行环境
+Spring Boot	2.7.x	后端核心框架
+MyBatis-Plus	3.5.x	持久层增强工具
+Spring Security	5.7.x	权限认证框架
+JWT	0.9.x	无状态令牌
+MySQL	8.0.x	关系型数据库
+Redis	6.x	缓存与令牌存储
+Vue.js	3.x	前端核心框架
+Element Plus	2.x	UI组件库
+Axios	1.x	HTTP请求库
+Maven	3.8.x	项目构建管理
+开发工具：IntelliJ IDEA（后端）、VS Code（前端）、Navicat（数据库）、Postman（接口测试）
+________________________________________
+3. 系统架构设计
+3.1 整体架构图
+text
+┌─────────────────────────────────────────────────────────────────┐
+│                          前端（Vue.js）                          │
+│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐              │
+│  │ 登录页  │ │ 主页    │ │ 凭证页  │ │ 报表页  │              │
+│  └─────────┘ └─────────┘ └─────────┘ └─────────┘              │
+│         │          │          │          │                     │
+│         └──────────┴──────────┴──────────┘                     │
+│                         Axios HTTP                             │
+└─────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      后端（SpringBoot）                          │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  Controller 层（RESTful API）                            │   │
+│  │  - 请求参数校验  - 统一响应封装  - 权限拦截              │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  Service 层（业务逻辑）                                  │   │
+│  │  - 借贷平衡校验  - 科目余额更新  - 报表取数              │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  Mapper 层（数据访问）                                   │   │
+│  │  - MyBatis-Plus CRUD  - 自定义SQL  - 分页查询            │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+                                   │
+         ┌─────────────────────────┼─────────────────────────┐
+         ▼                         ▼                         ▼
+┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐
+│     MySQL       │   │     Redis       │   │   EasyExcel     │
+│  核心业务数据   │   │  令牌/缓存      │   │   报表导出      │
+└─────────────────┘   └─────────────────┘   └─────────────────┘
+3.2 前后端分离架构
+•	前端通过 Axios 发送 HTTP 请求，后端返回 JSON 格式数据。
+•	用户登录后，后端生成 JWT 令牌返回前端，前端存储于 localStorage，并在后续请求的 Authorization 头中携带。
+•	后端通过 Spring Security 过滤器解析 JWT，完成认证和授权。
+________________________________________
+4. 功能模块设计
+模块	子功能	说明
+系统管理	用户管理	增删改查、重置密码、启用禁用
+	角色管理	增删改查、权限分配（菜单树）
+	菜单管理	动态菜单配置（目录/菜单/按钮）
+	部门管理	组织架构树形维护
+	操作日志	登录日志、操作日志查询导出
+基础数据	会计科目	树形结构维护，支持多级科目
+	往来单位	客户/供应商信息管理
+	结算方式	现金/银行/票据等
+	账套期间	会计期间设置、开账、结账
+凭证管理	凭证填制	借贷平衡校验、辅助核算
+	凭证审核	制单人与审核人分离
+	凭证记账	更新科目余额表
+	凭证查询	多条件组合查询
+账簿管理	总账	按期间汇总科目发生额余额
+	明细账	科目明细流水
+	科目余额表	所有科目余额列表
+	序时账	凭证流水
+报表管理	资产负债表	自动取数生成
+	利润表	自动取数生成
+	导出/打印	Excel导出、打印
+费用报销	报销单填制	上传附件、提交审批
+	审批流程	部门负责人→财务→出纳
+	付款登记	出纳付款确认
+	关联凭证	一键生成记账凭证
+________________________________________
+5. 数据库设计
+5.1 E-R 图（核心实体关系）
+text
+[用户] ----< [用户角色] >---- [角色] ----< [角色菜单] >---- [菜单]
+   |                                     
+   |                                     
+   └------< [凭证] >----< [凭证分录] >---- [会计科目]
+   |                                     
+   └------< [报销单] >---- [报销单明细]
+5.2 核心表结构
+5.2.1 用户表（user）
+字段	类型	约束	说明
+id	bigint	PK, auto	用户ID
+username	varchar(50)	unique	用户名
+password	varchar(255)	not null	密码（BCrypt）
+nickname	varchar(50)		昵称
+email	varchar(100)		邮箱
+mobile	varchar(20)		手机号
+dept_id	bigint	index	部门ID
+status	tinyint(1)	default 1	0禁用 1启用
+create_time	datetime		创建时间
+update_time	datetime		更新时间
+last_login_time	datetime		最后登录时间
+5.2.2 角色表（role）
+字段	类型	约束	说明
+id	bigint	PK, auto	角色ID
+role_name	varchar(50)	not null	角色名称
+role_code	varchar(50)	unique	角色编码
+status	tinyint(1)	default 1	0禁用 1启用
+5.2.3 用户角色关联表（user_role）
+字段	类型	约束	说明
+id	bigint	PK, auto	
+user_id	bigint	FK	用户ID
+role_id	bigint	FK	角色ID
+5.2.4 菜单表（menu）
+字段	类型	约束	说明
+id	bigint	PK, auto	菜单ID
+parent_id	bigint		父菜单ID（0为根）
+menu_name	varchar(50)	not null	菜单名称
+path	varchar(200)		路由路径
+permission	varchar(100)		权限标识
+icon	varchar(50)		图标
+sort	int		排序号
+type	tinyint(1)		0目录 1菜单 2按钮
+5.2.5 会计科目表（account_subject）
+字段	类型	约束	说明
+id	bigint	PK, auto	科目ID
+subject_code	varchar(50)	unique	科目编码
+subject_name	varchar(100)	not null	科目名称
+subject_type	tinyint(2)		1资产 2负债 3权益 4成本 5损益
+parent_id	bigint		父科目ID
+level	tinyint(2)		科目级别
+balance_direction	tinyint(1)		1借 2贷
+status	tinyint(1)	default 1	0禁用 1启用
+has_auxiliary	tinyint(1)	default 0	是否辅助核算
+5.2.6 凭证表（voucher）
+字段	类型	约束	说明
+id	bigint	PK, auto	凭证ID
+voucher_no	varchar(50)	unique(period)	凭证号
+period	varchar(6)	unique(voucher_no)	会计期间 YYYYMM
+voucher_date	date		凭证日期
+summary	varchar(255)		摘要
+maker_id	bigint	FK(user)	制单人ID
+auditor_id	bigint	FK(user)	审核人ID
+bookkeeper_id	bigint	FK(user)	记账人ID
+status	tinyint(1)		0未审核 1已审核 2已记账 3作废
+attachment_count	int		附单据数
+5.2.7 凭证分录表（voucher_entry）
+字段	类型	约束	说明
+id	bigint	PK, auto	分录ID
+voucher_id	bigint	FK(voucher)	凭证ID
+subject_id	bigint	FK(account_subject)	科目ID
+summary	varchar(255)		摘要
+debit_amount	decimal(18,2)		借方金额
+credit_amount	decimal(18,2)		贷方金额
+auxiliary_type	tinyint(2)		辅助核算类型
+auxiliary_id	bigint		辅助核算ID
+5.2.8 科目余额表（subject_balance）
+字段	类型	约束	说明
+id	bigint	PK, auto	余额ID
+subject_id	bigint	FK(account_subject)	科目ID
+period	varchar(6)		会计期间
+opening_debit	decimal(18,2)		期初借方余额
+opening_credit	decimal(18,2)		期初贷方余额
+debit_amount	decimal(18,2)		本期借方发生额
+credit_amount	decimal(18,2)		本期贷方发生额
+ending_debit	decimal(18,2)		期末借方余额
+ending_credit	decimal(18,2)		期末贷方余额
+5.2.9 报销单表（expense_claim）
+字段	类型	约束	说明
+id	bigint	PK, auto	报销单ID
+claim_no	varchar(50)	unique	报销单号
+reason	varchar(255)	not null	报销事由
+total_amount	decimal(18,2)		总金额
+expense_type	tinyint(2)		费用类型
+applicant_id	bigint	FK(user)	申请人ID
+dept_id	bigint	FK(dept)	部门ID
+status	tinyint(2)		0草稿 1待审批 2已审批 3已付款 4驳回
+approver_id	bigint	FK(user)	审批人ID
+approve_time	datetime		审批时间
+payer_id	bigint	FK(user)	付款人ID
+payment_time	datetime		付款时间
+voucher_id	bigint	FK(voucher)	关联凭证ID
+5.2.10 操作日志表（operation_log）
+字段	类型	约束	说明
+id	bigint	PK, auto	日志ID
+user_id	bigint	FK(user)	用户ID
+username	varchar(50)		用户名
+operation	varchar(100)		操作描述
+method	varchar(255)		请求方法
+params	text		请求参数
+ip	varchar(50)		IP地址
+duration	int		耗时(ms)
+create_time	datetime		操作时间
+________________________________________
+6. 接口设计（RESTful API）
+6.1 统一响应格式
+json
+{
+  "code": 200,
+  "message": "操作成功",
+  "data": {}
+}
+code	说明
+200	成功
+400	参数错误
+401	未认证
+403	无权限
+500	服务器错误
+6.2 核心接口示例
+6.2.1 认证模块
+方法	路径	说明	请求体
+POST	/api/auth/login	登录	{username, password}
+POST	/api/auth/logout	登出	无
+GET	/api/auth/info	获取当前用户信息	无
+6.2.2 用户管理
+方法	路径	说明	权限
+GET	/api/users	分页查询用户	admin
+POST	/api/users	新增用户	admin
+PUT	/api/users/{id}	修改用户	admin
+DELETE	/api/users/{id}	删除用户	admin
+PUT	/api/users/{id}/resetPwd	重置密码	admin
+6.2.3 凭证管理
+方法	路径	说明	权限
+POST	/api/vouchers	新增凭证	财务人员
+PUT	/api/vouchers/{id}/audit	审核凭证	财务主管
+PUT	/api/vouchers/{id}/bookkeep	记账	财务人员
+GET	/api/vouchers	分页查询凭证	财务人员
+GET	/api/vouchers/{id}	获取凭证详情	财务人员
+6.2.4 报表接口
+方法	路径	说明	权限
+GET	/api/reports/balance-sheet	资产负债表	财务人员
+GET	/api/reports/profit-statement	利润表	财务人员
+GET	/api/reports/export	导出Excel	财务人员
+________________________________________
+7. 核心模块实现设计
+7.1 项目包结构（后端）
+text
+com.enterprise.finance
+├── controller          # 控制层
+│   ├── AuthController
+│   ├── UserController
+│   ├── VoucherController
+│   └── ...
+├── service             # 业务层
+│   ├── impl
+│   └── ...
+├── mapper              # 数据访问层
+├── entity              # 实体类
+│   ├── User
+│   ├── Voucher
+│   └── ...
+├── dto                 # 数据传输对象
+├── vo                  # 视图对象
+├── config              # 配置类
+│   ├── SecurityConfig
+│   ├── RedisConfig
+│   └── ...
+├── common              # 公共组件
+│   ├── Result
+│   ├── GlobalExceptionHandler
+│   └── ...
+└── utils               # 工具类
+7.2 关键业务逻辑设计
+7.2.1 凭证填制与借贷平衡校验
+伪代码：
+text
+public Result addVoucher(VoucherDto dto) {
+    // 1. 参数校验
+    if (dto.getEntries() == null || dto.getEntries().isEmpty()) {
+        return error("分录不能为空");
+    }
+    
+    // 2. 计算借方合计与贷方合计
+    BigDecimal totalDebit = dto.getEntries().stream()
+            .map(VoucherEntryDto::getDebitAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+    BigDecimal totalCredit = dto.getEntries().stream()
+            .map(VoucherEntryDto::getCreditAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+    
+    // 3. 借贷平衡校验
+    if (totalDebit.compareTo(totalCredit) != 0) {
+        return error("借贷金额不平衡");
+    }
+    
+    // 4. 保存凭证（状态为未审核）
+    Voucher voucher = convertToEntity(dto);
+    voucher.setStatus(0);
+    voucher.setMakerId(currentUserId());
+    voucher.setCreateTime(new Date());
+    voucherMapper.insert(voucher);
+    
+    // 5. 保存分录
+    for (VoucherEntryDto entryDto : dto.getEntries()) {
+        VoucherEntry entry = convertToEntry(entryDto);
+        entry.setVoucherId(voucher.getId());
+        voucherEntryMapper.insert(entry);
+    }
+    
+    return success(voucher);
+}
+7.2.2 凭证记账（更新科目余额）
+业务规则：
+•	只有已审核的凭证才能记账
+•	记账时更新科目余额表（本币发生额）
+•	更新逻辑：根据凭证中的借方/贷方金额，累加到对应科目当前期间的 debit_amount 和 credit_amount 字段，并重新计算期末余额
+伪代码：
+text
+@Transactional
+public void bookkeep(Long voucherId) {
+    Voucher voucher = voucherMapper.selectById(voucherId);
+    if (voucher.getStatus() != 1) {
+        throw new BusinessException("只有已审核的凭证才能记账");
+    }
+    
+    List<VoucherEntry> entries = voucherEntryMapper.selectByVoucherId(voucherId);
+    String period = voucher.getPeriod();
+    
+    for (VoucherEntry entry : entries) {
+        // 获取或创建科目余额记录
+        SubjectBalance balance = balanceMapper.selectBySubjectIdAndPeriod(
+                entry.getSubjectId(), period);
+        if (balance == null) {
+            // 初始化余额（从上一期间结转期初）
+            balance = initBalance(entry.getSubjectId(), period);
+        }
+        // 更新发生额
+        balance.setDebitAmount(balance.getDebitAmount().add(entry.getDebitAmount()));
+        balance.setCreditAmount(balance.getCreditAmount().add(entry.getCreditAmount()));
+        // 重新计算期末余额
+        recalcEndingBalance(balance);
+        balanceMapper.updateById(balance);
+    }
+    
+    voucher.setStatus(2);
+    voucher.setBookkeeperId(currentUserId());
+    voucherMapper.updateById(voucher);
+}
+7.2.3 资产负债表取数逻辑
+实现：
+text
+public BalanceSheetVo getBalanceSheet(String period) {
+    // 获取所有一级资产类科目
+    List<AccountSubject> assetSubjects = subjectMapper.selectByTypeAndLevel(1, 1);
+    // 获取所有一级负债类科目
+    List<AccountSubject> liabilitySubjects = subjectMapper.selectByTypeAndLevel(2, 1);
+    // 获取所有一级权益类科目
+    List<AccountSubject> equitySubjects = subjectMapper.selectByTypeAndLevel(3, 1);
+    
+    BalanceSheetVo vo = new BalanceSheetVo();
+    
+    // 计算资产总计
+    BigDecimal totalAsset = BigDecimal.ZERO;
+    for (AccountSubject subject : assetSubjects) {
+        SubjectBalance balance = balanceMapper.selectBySubjectIdAndPeriod(
+                subject.getId(), period);
+        // 资产类科目取期末借方余额
+        BigDecimal amount = balance.getEndingDebit();
+        vo.addAssetItem(subject.getSubjectName(), amount);
+        totalAsset = totalAsset.add(amount);
+    }
+    vo.setTotalAsset(totalAsset);
+    
+    // 负债合计
+    BigDecimal totalLiability = BigDecimal.ZERO;
+    for (AccountSubject subject : liabilitySubjects) {
+        SubjectBalance balance = balanceMapper.selectBySubjectIdAndPeriod(
+                subject.getId(), period);
+        // 负债类科目取期末贷方余额
+        BigDecimal amount = balance.getEndingCredit();
+        vo.addLiabilityItem(subject.getSubjectName(), amount);
+        totalLiability = totalLiability.add(amount);
+    }
+    vo.setTotalLiability(totalLiability);
+    
+    // 权益合计（逻辑类似）
+    // ...
+    
+    vo.setTotalEquity(totalEquity);
+    vo.setTotalLiabilityAndEquity(totalLiability.add(totalEquity));
+    
+    return vo;
+}
+7.3 安全设计
+7.3.1 Spring Security + JWT 配置
+•	自定义 JwtAuthenticationFilter，解析请求头中的 Token，验证并设置 Authentication。
+•	配置 SecurityConfig，放行登录、静态资源等公开接口，其余接口均需认证。
+•	使用 @PreAuthorize 注解进行方法级权限控制。
+关键代码示例：
+java
+@Configuration
+@EnableWebSecurity
+@EnableGlobalMethodSecurity(prePostEnabled = true)
+public class SecurityConfig {
+    
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http
+            .csrf().disable()
+            .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+            .and()
+            .authorizeRequests()
+            .antMatchers("/api/auth/**", "/swagger-ui/**").permitAll()
+            .anyRequest().authenticated()
+            .and()
+            .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
+        return http.build();
+    }
+    
+    @Bean
+    public JwtAuthenticationFilter jwtAuthenticationFilter() {
+        return new JwtAuthenticationFilter();
+    }
+}
+7.3.2 密码加密
+java
+@Bean
+public PasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder();
+}
+7.3.3 操作日志记录（AOP）
+使用自定义注解 @Log，通过 AOP 切面记录用户操作信息。
+java
+@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface Log {
+    String value() default "";
+}
+
+@Aspect
+@Component
+public class LogAspect {
+    @Around("@annotation(log)")
+    public Object around(ProceedingJoinPoint point, Log log) throws Throwable {
+        // 记录请求参数、开始时间
+        Object result = point.proceed();
+        // 记录结束时间、耗时，保存到数据库
+        return result;
+    }
+}
+________________________________________
+8. 前端实现设计
+8.1 项目结构
+text
+src
+├── api                 # 接口封装
+│   ├── auth.js
+│   ├── user.js
+│   └── voucher.js
+├── assets              # 静态资源
+├── components          # 公共组件
+├── router              # 路由配置
+│   └── index.js
+├── store               # Vuex状态管理
+├── utils               # 工具函数
+│   ├── request.js      # axios封装
+│   └── auth.js         # token处理
+├── views               # 页面组件
+│   ├── login
+│   ├── system
+│   ├── voucher
+│   └── report
+├── App.vue
+└── main.js
+8.2 路由守卫（权限控制）
+javascript
+router.beforeEach((to, from, next) => {
+  const token = localStorage.getItem('token');
+  if (to.path === '/login') {
+    next();
+  } else {
+    if (!token) {
+      next('/login');
+    } else {
+      // 动态加载用户权限菜单
+      store.dispatch('getUserInfo').then(() => {
+        next();
+      }).catch(() => {
+        next('/login');
+      });
+    }
+  }
+});
+8.3 axios 请求拦截器
+javascript
+// 请求拦截：添加 token
+axios.interceptors.request.use(config => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers['Authorization'] = 'Bearer ' + token;
+  }
+  return config;
+});
+
+// 响应拦截：统一处理错误
+axios.interceptors.response.use(
+  response => response.data,
+  error => {
+    if (error.response.status === 401) {
+      // 未认证，跳转登录
+      router.push('/login');
+    }
+    return Promise.reject(error);
+  }
+);
+________________________________________
+9. 部署与运维
+9.1 打包
+•	后端：mvn clean package 生成 jar 包
+•	前端：npm run build 生成 dist 目录
+9.2 部署
+•	后端：java -jar finance-1.0.jar --spring.profiles.active=prod
+•	前端：将 dist 目录内容复制到 Nginx 或静态服务器
+9.3 配置
+•	数据库连接、Redis 连接等通过 application-prod.yml 配置
+•	使用环境变量或配置中心管理敏感信息
+________________________________________
+10. 测试方案
+10.1 单元测试
+•	使用 JUnit 5 + Mockito 对 Service 层进行单元测试
+•	重点测试：借贷平衡校验、科目余额更新、权限校验
+10.2 集成测试
+•	使用 Postman 或 JMeter 测试接口
+•	覆盖正常流程和异常流程
+10.3 性能测试
+•	使用 JMeter 模拟 50 用户并发查询凭证
+•	监控响应时间和系统资源
+________________________________________
+11. 总结
+本文档详细描述了基于 SpringBoot 的企业财务管理系统的项目设计，包括技术选型、系统架构、功能模块、数据库设计、接口设计、核心实现逻辑、安全设计及部署方案。开发人员可根据本设计文档，使用 Copilot 等 AI 工具辅助生成代码，加快开发进度。系统设计遵循企业级规范，确保易用性、安全性和可扩展性，能够满足中小企业的财务管理需求。
+

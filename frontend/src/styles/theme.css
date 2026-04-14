@@ -1,0 +1,40 @@
+:root {
+  --el-color-primary: #2563eb;
+  --el-color-primary-light-3: #60a5fa;
+  --el-color-primary-light-5: #bfdbfe;
+  --el-color-success: #16a34a;
+  --el-color-danger: #dc2626;
+  --el-color-warning: #64748b;
+  --el-bg-color-page: #eff5fb;
+  --el-border-color-base: #dbe3ee;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.1), transparent 24%),
+    linear-gradient(180deg, #f8fbff 0%, #eef4fb 100%);
+  color: #111827;
+  font-family: "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.app-card {
+  border-radius: 18px;
+  border: 1px solid rgba(219, 227, 238, 0.95);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.06);
+}
+
+.el-dialog {
+  border-radius: 20px;
+}

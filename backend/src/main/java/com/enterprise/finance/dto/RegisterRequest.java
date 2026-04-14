@@ -1,0 +1,36 @@
+package com.enterprise.finance.dto;
+
+import lombok.Data;
+
+import javax.validation.constraints.Email;
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.Pattern;
+import javax.validation.constraints.Size;
+
+@Data
+public class RegisterRequest {
+
+    @NotBlank(message = "Username is required")
+    @Size(min = 4, max = 20, message = "Username length must be between 4 and 20")
+    private String username;
+
+    @NotBlank(message = "Password is required")
+    @Size(min = 6, max = 20, message = "Password length must be between 6 and 20")
+    private String password;
+
+    @NotBlank(message = "Confirm password is required")
+    private String confirmPassword;
+
+    @NotBlank(message = "Nickname is required")
+    @Size(max = 50, message = "Nickname length must be less than 50")
+    private String nickname;
+
+    @Email(message = "Email format is invalid")
+    @Size(max = 100, message = "Email length must be less than 100")
+    private String email;
+
+    @Pattern(regexp = "^$|^[0-9]{11}$", message = "Mobile must be 11 digits")
+    private String mobile;
+
+    private Long deptId;
+}
